@@ -4,6 +4,9 @@ The rulebook I copy into every new project so that Claude Code works like a care
 not a code generator I hope got it right. It is plain Markdown in `.claude/rules/`, which Claude Code loads
 automatically, plus templates for the project guides and two small scripts.
 
+Published in November 2026: a cleaned-up version of the rules I have been building up in my own projects since
+December 2025.
+
 **What it makes Claude do:**
 
 - **Ask instead of guess.** The shape of a project (backends, apps, languages, money, GitHub or local only, how
