@@ -1,0 +1,29 @@
+#!/bin/sh
+# Refuses a commit that would add a private file, even one forced past .gitignore (git add -f): env files, private
+# notes, local Claude settings, databases and disk images. Then, when scripts/hooks/leak-words.local exists
+# (gitignored; one word or phrase per line: a name, a path, a file name), refuses a commit whose added lines contain
+# any of them. Git runs it once the clone has: git config core.hooksPath scripts/hooks
+#
+# CLAUDE.md files are committed in product repos, so this hook does not block *.md; add `\.md$` to the pattern for a
+# repo whose docs must stay private.
+blocked=$(git diff --cached --name-only --diff-filter=ACMR |
+  grep -E '^docs/private/|(^|/)\.env($|\.)|(^|/)\.claude/settings\.local\.json$|leak-words\.local$|\.(db|db-journal|db-wal|db-shm)$|\.sqlite|\.sparsebundle(/|$)' |
+  grep -vE '(^|/)\.env\.example$')
+if [ -n "$blocked" ]; then
+  echo "Commit refused: these files must never be committed:" >&2
+  echo "$blocked" | sed 's/^/  /' >&2
+  echo "Take them out with: git restore --staged <file>" >&2
+  exit 1
+fi
+
+words="$(git rev-parse --show-toplevel)/scripts/hooks/leak-words.local"
+if [ -f "$words" ]; then
+  # The added lines of the staged changes (the diff's "+" lines, not its "+++" file headers), matched case-insensitively
+  # against the words as fixed strings.
+  leaks=$(git diff --cached --diff-filter=ACMR -U0 | grep '^+' | grep -v '^+++ ' | grep -i -F -f "$words")
+  if [ -n "$leaks" ]; then
+    echo "Commit refused: these added lines contain a word from scripts/hooks/leak-words.local:" >&2
+    echo "$leaks" | cut -c1-160 | sed 's/^/  /' >&2
+    exit 1
+  fi
+fi
